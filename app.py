@@ -7,35 +7,82 @@ from flask import Flask, request, send_file
 from fsm import TocMachine
 
 
-API_TOKEN = 'Your Telegram API Token'
-WEBHOOK_URL = 'Your Webhook URL'
+API_TOKEN = '383554977:AAFWErULgIZ9492Kp_nWWALfL4ckNijEWhw'
+WEBHOOK_URL = 'https://e68e771d.ngrok.io/hook'
 
 app = Flask(__name__)
 bot = telegram.Bot(token=API_TOKEN)
 machine = TocMachine(
     states=[
         'user',
-        'state1',
-        'state2'
+		'intro',
+		'circle_fork',
+		'circle_fork_start',
+		'circle_fork_end',
+		'mora',
+		'mora_end'
     ],
     transitions=[
-        {
-            'trigger': 'advance',
-            'source': 'user',
-            'dest': 'state1',
-            'conditions': 'is_going_to_state1'
-        },
-        {
-            'trigger': 'advance',
-            'source': 'user',
-            'dest': 'state2',
-            'conditions': 'is_going_to_state2'
-        },
+		{
+		    'trigger':'advance',
+			'source':'user',
+			'dest':'intro',
+			'conditions':'askIntro'
+		},
+		{
+		    'trigger':'advance',
+			'source':'user',
+			'dest':'circle_fork',
+			'conditions':'playCircleFork'
+		},
+		{
+		    'trigger':'advance',
+			'source':'circle_fork',
+			'dest':'circle_fork_start',
+			'conditions':'startCircleFork'
+		},
+		{
+		    'trigger':'advance',
+			'source':'circle_fork_start',
+			'dest':'circle_fork_start',
+			'conditions':'chooseCircleFork'
+		},
+		{
+			'trigger':'end',
+			'source':'circle_fork_start',
+			'dest':'circle_fork_end',
+			'conditions':'endCircleFork'
+		},
+		{
+		    'trigger':'advance',
+			'source':'circle_fork_end',
+			'dest':'circle_fork',
+			'conditions':'againCircleFork'
+		},
+		{
+		    'trigger':'advance',
+			'source':'user',
+			'dest':'mora',
+			'conditions':'play_mora'
+		},
+		{
+		    'trigger':'advance',
+			'source':'mora',
+			'dest':'mora_end',
+			'conditions':'chooseHand'
+		},
+		{
+		    'trigger':'advance',
+			'source':'mora_end',
+			'dest':'mora',
+			'conditions':'moraPlayAgain'
+		},
         {
             'trigger': 'go_back',
             'source': [
-                'state1',
-                'state2'
+				'intro',
+				'mora_end',
+				'circle_fork_end'
             ],
             'dest': 'user'
         }
@@ -58,16 +105,17 @@ def _set_webhook():
 @app.route('/hook', methods=['POST'])
 def webhook_handler():
     update = telegram.Update.de_json(request.get_json(force=True), bot)
+    print(update.message.text)
     machine.advance(update)
     return 'ok'
 
 
 @app.route('/show-fsm', methods=['GET'])
 def show_fsm():
-    byte_io = BytesIO()
-    machine.graph.draw(byte_io, prog='dot', format='png')
-    byte_io.seek(0)
-    return send_file(byte_io, attachment_filename='fsm.png', mimetype='image/png')
+   byte_io = BytesIO()
+   machine.graph.draw(byte_io, prog='dot', format='png')
+   byte_io.seek(0)
+   return send_file(byte_io, attachment_filename='fsm.png', mimetype='image/png')
 
 
 if __name__ == "__main__":
